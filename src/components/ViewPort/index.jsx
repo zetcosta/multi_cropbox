@@ -81,7 +81,7 @@ class ViewPort extends Component {
     this.setState({
       buffPosX: e.clientX,
       buffPosY: e.clientY,
-      isMoving: handle === -1 && true,
+      isMoving: handle === -1 && active !== -1,
       isHandling: handle !== -1,
       active,
       handle
@@ -110,10 +110,10 @@ class ViewPort extends Component {
     }
 
     const { buffPosX, buffPosY, isMoving, isHandling, active, basePos } = this.state;
+    let cx = e.clientX - basePos.left;
+    let cy = e.clientY - basePos.top;
     if (active < 0 || crops[active].disable) return;
     let crop = crops[active];
-    let dx = e.clientX - buffPosX;
-    let dy = e.clientY - buffPosY;
     if (isMoving) {
       this.setState({ buffPosX: e.clientX, buffPosY: e.clientY });
       if (
@@ -123,27 +123,36 @@ class ViewPort extends Component {
         e.clientY - basePos.top - crop.top > crop.height * 0.9
       )
         return;
+      let dx = e.clientX - buffPosX;
+      let dy = e.clientY - buffPosY;
       crop.left += dx;
       crop.top += dy;
+      crop.right += dx;
+      crop.bottom += dy;
       if (crop.top < 0) {
         crop.top = 0;
+        crop.bottom = crop.height;
       }
       if (crop.left < 0) {
         crop.left = 0;
+        crop.right = crop.width;
       }
-      if (crop.top + crop.height > basePos.bottom - basePos.top) crop.top = basePos.bottom - basePos.top - crop.height;
-      if (crop.left + crop.width > basePos.right - basePos.left) crop.left = basePos.right - basePos.left - crop.width;
+      if (crop.bottom > basePos.height) {
+        crop.top = basePos.height - crop.height;
+        crop.bottom = basePos.height;
+      }
+      if (crop.right > basePos.width) {
+        crop.left = basePos.height - crop.height;
+        crop.right = basePos.width;
+      }
     }
 
     if (isHandling) {
-      this.setState({ buffPosX: e.clientX, buffPosY: e.clientY });
       const { handle } = this.state;
-      let cx = e.clientX - basePos.left;
-      let cy = e.clientY - basePos.top;
       if (handle === 0) {
-        crop.left += dx;
+        crop.left = cx;
         if (crop.left < 0) crop.left = 0;
-        crop.top += dy;
+        crop.top = cy;
         if (crop.top < 0) crop.top = 0;
         crop.width = Math.abs(crop.right - crop.left);
         crop.height = Math.abs(crop.bottom - crop.top);
@@ -157,7 +166,7 @@ class ViewPort extends Component {
         }
       }
       if (handle === 1) {
-        crop.top += dy;
+        crop.top = cy;
         if (crop.top < 0) crop.top = 0;
         crop.height = Math.abs(crop.bottom - crop.top);
         if (cy > crop.bottom) {
@@ -166,10 +175,10 @@ class ViewPort extends Component {
         }
       }
       if (handle === 2) {
-        crop.right += dx;
+        crop.right = cx;
         if (crop.right > basePos.width) crop.right = basePos.width;
-        crop.top += dy;
-        if (crop.top > 0) crop.top = 0;
+        crop.top = cy;
+        if (crop.top < 0) crop.top = 0;
         crop.width = Math.abs(crop.right - crop.left);
         crop.height = Math.abs(crop.bottom - crop.top);
         if (cx < crop.left) {
@@ -182,7 +191,7 @@ class ViewPort extends Component {
         }
       }
       if (handle === 3) {
-        crop.left += dx;
+        crop.left = cx;
         if (crop.left < 0) crop.left = 0;
         crop.width = Math.abs(crop.right - crop.left);
         if (cx > crop.right) {
@@ -191,7 +200,7 @@ class ViewPort extends Component {
         }
       }
       if (handle === 4) {
-        crop.right += dx;
+        crop.right = cx;
         if (crop.right > basePos.width) crop.right = basePos.width;
         crop.width = Math.abs(crop.right - crop.left);
         if (cx < crop.left) {
@@ -200,9 +209,9 @@ class ViewPort extends Component {
         }
       }
       if (handle === 5) {
-        crop.left += dx;
+        crop.left = cx;
         if (crop.left < 0) crop.left = 0;
-        crop.bottom += dy;
+        crop.bottom = cy;
         if (crop.bottom > basePos.height) crop.bottom = basePos.height;
         crop.width = Math.abs(crop.right - crop.left);
         crop.height = Math.abs(crop.bottom - crop.top);
@@ -216,18 +225,18 @@ class ViewPort extends Component {
         }
       }
       if (handle === 6) {
-        crop.bottom += dy;
+        crop.bottom = cy;
         if (crop.bottom > basePos.height) crop.bottom = basePos.height;
         crop.height = Math.abs(crop.bottom - crop.top);
         if (cy < crop.top) {
-          [crop.top, crop.bottom] = [crop.bottom, crop.right];
+          [crop.top, crop.bottom] = [crop.bottom, crop.top];
           this.setState({ handle: 1 });
         }
       }
       if (handle === 7) {
-        crop.right += dx;
+        crop.right = cx;
         if (crop.right > basePos.width) crop.right = basePos.width;
-        crop.bottom += dy;
+        crop.bottom = cy;
         if (crop.bottom > basePos.height) crop.bottom = basePos.height;
         crop.width = Math.abs(crop.right - crop.left);
         crop.height = Math.abs(crop.bottom - crop.top);
@@ -236,12 +245,15 @@ class ViewPort extends Component {
           this.setState({ handle: 5 });
         }
         if (cy < crop.top) {
-          [crop.top, crop.bottom] = [crop.bottom, crop.right];
+          [crop.top, crop.bottom] = [crop.bottom, crop.top];
           this.setState({ handle: 2 });
         }
       }
     }
     this.generateHandles(crop);
+    let newcrops = [...crops];
+    setCrops(newcrops);
+    this.setState({ buffPosX: e.clientX, buffPosY: e.clientY });
   };
   generateHandles = crop => {
     let handles = [];
